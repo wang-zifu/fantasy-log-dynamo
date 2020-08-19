@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"encoding/json"
 	"../types"
+	"../dynamo"
 )
 
 
@@ -17,13 +18,19 @@ func main() {
 func Handler(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	var monster types.Monster
 
-	err := json.Unmarshal([]byte(req.Body), &monster)
+	marshalErr := json.Unmarshal([]byte(req.Body), &monster)
 
-	if err != nil {
+	if marshalErr != nil {
 		return response("Couldn't unmarshal json into monster struct", http.StatusBadRequest), nil
 	}
 
-	return response(monster.Name, http.StatusOK), nil
+	dynamoErr := dynamo.SaveMonster(monster)
+
+	if dynamoErr != nil {
+		return response(dynamoErr.Error(), http.StatusInternalServerError), nil
+	}
+
+	return response("Successfully wrote monster to log.", http.StatusOK), nil
 }
 
 func response(body string, statusCode int) events.APIGatewayProxyResponse {
